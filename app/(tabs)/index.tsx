@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   GestureResponderEvent,
   Pressable,
   ScrollView,
@@ -17,6 +18,42 @@ type CalculatorButton = {
   type: 'digit' | 'decimal' | 'operator' | 'command';
   action?: Operator | '±' | '=' | '%' | 'CE' | 'C' | '⌫' | '1/x' | 'x²' | '√x';
 };
+
+const SIDEBAR_WIDTH = 280;
+
+type SidebarSection = {
+  title: string;
+  items: { label: string; icon: string }[];
+};
+
+const SIDEBAR_SECTIONS: SidebarSection[] = [
+  {
+    title: 'Calculator',
+    items: [
+      { label: 'Standard', icon: '🧮' },
+      { label: 'Scientific', icon: '🧪' },
+      { label: 'Graphing', icon: '📈' },
+      { label: 'Programmer', icon: '💻' },
+      { label: 'Date calculation', icon: '📅' },
+    ],
+  },
+  {
+    title: 'Converter',
+    items: [
+      { label: 'Currency', icon: '💱' },
+      { label: 'Volume', icon: '🧴' },
+      { label: 'Length', icon: '📏' },
+      { label: 'Weight and mass', icon: '⚖️' },
+      { label: 'Temperature', icon: '🌡️' },
+      { label: 'Energy', icon: '🔋' },
+      { label: 'Area', icon: '📐' },
+      { label: 'Speed', icon: '🚀' },
+      { label: 'Time', icon: '⏱️' },
+    ],
+  },
+];
+
+const SIDEBAR_FOOTER = { label: 'Settings', icon: '⚙️' };
 
 const BUTTON_GROUPS: CalculatorButton[][] = [
   [
@@ -106,6 +143,33 @@ export default function HomeScreen() {
   const [storedValue, setStoredValue] = useState<number | null>(null);
   const [memoryEntries, setMemoryEntries] = useState<MemoryEntry[]>([]);
   const [memoryExpanded, setMemoryExpanded] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState({ category: 'Calculator', label: 'Standard' });
+
+  const sidebarAnimation = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(sidebarAnimation, {
+      toValue: sidebarOpen ? 1 : 0,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  }, [sidebarOpen, sidebarAnimation]);
+
+  const sidebarTranslate = sidebarAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-SIDEBAR_WIDTH, 0],
+  });
+
+  const overlayOpacity = sidebarAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.4],
+  });
+
+  const handleSelectSidebarItem = (category: string, label: string) => {
+    setActiveSection({ category, label });
+    setSidebarOpen(false);
+  };
 
   const handleDigitPress = (digit: string) => {
     setDisplayValue((prev) => {
@@ -403,12 +467,25 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.innerContainer}>
           <View style={styles.header}>
-            <Text style={styles.menuIcon}>☰</Text>
-            <View>
-              <Text style={styles.headerTitle}>Standard</Text>
-              <Text style={styles.headerSubtitle}>Calculator</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Toggle navigation menu"
+              onPress={() => setSidebarOpen(true)}
+              style={({ pressed }) => [styles.headerIconButton, pressed && styles.headerIconPressed]}
+            >
+              <Text style={styles.menuIcon}>☰</Text>
+            </Pressable>
+            <View style={styles.headerTextGroup}>
+              <Text style={styles.headerTitle}>{activeSection.label}</Text>
+              <Text style={styles.headerSubtitle}>{activeSection.category}</Text>
             </View>
-            <Text style={styles.historyIcon}>🕘</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open history"
+              style={({ pressed }) => [styles.headerIconButton, pressed && styles.headerIconPressed]}
+            >
+              <Text style={styles.historyIcon}>🕘</Text>
+            </Pressable>
           </View>
 
           <View style={styles.memoryRow}>
@@ -484,6 +561,67 @@ export default function HomeScreen() {
           </View>
         </View>
       </ScrollView>
+      <Animated.View
+        pointerEvents={sidebarOpen ? 'auto' : 'none'}
+        style={[styles.sidebarOverlay, { opacity: overlayOpacity }]}
+      >
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => setSidebarOpen(false)} />
+      </Animated.View>
+      <Animated.View
+        style={[styles.sidebarContainer, { transform: [{ translateX: sidebarTranslate }] }]}
+      >
+        <View style={styles.sidebarHeader}>
+          <Text style={styles.sidebarHeaderTitle}>Calculator</Text>
+        </View>
+        <ScrollView
+          contentContainerStyle={styles.sidebarScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {SIDEBAR_SECTIONS.map((section) => (
+            <View key={section.title} style={styles.sidebarSection}>
+              <Text style={styles.sidebarSectionTitle}>{section.title}</Text>
+              {section.items.map((item) => {
+                const isActive =
+                  activeSection.category === section.title && activeSection.label === item.label;
+                return (
+                  <Pressable
+                    key={item.label}
+                    onPress={() => handleSelectSidebarItem(section.title, item.label)}
+                    style={({ pressed }) => [
+                      styles.sidebarItem,
+                      isActive && styles.sidebarItemActive,
+                      pressed && styles.sidebarItemPressed,
+                    ]}
+                  >
+                    <Text style={styles.sidebarItemIcon}>{item.icon}</Text>
+                    <Text style={[styles.sidebarItemLabel, isActive && styles.sidebarItemLabelActive]}>
+                      {item.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
+        </ScrollView>
+        <Pressable
+          onPress={() => handleSelectSidebarItem('Settings', SIDEBAR_FOOTER.label)}
+          style={({ pressed }) => [
+            styles.sidebarFooter,
+            activeSection.category === 'Settings' && styles.sidebarItemActive,
+            pressed && styles.sidebarItemPressed,
+          ]}
+        >
+          <Text style={styles.sidebarItemIcon}>{SIDEBAR_FOOTER.icon}</Text>
+          <Text
+            style={[
+              styles.sidebarItemLabel,
+              activeSection.category === 'Settings' && styles.sidebarItemLabelActive,
+            ]}
+          >
+            {SIDEBAR_FOOTER.label}
+          </Text>
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }
@@ -507,10 +645,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
+  },
+  headerTextGroup: {
+    flex: 1,
+    gap: 2,
   },
   menuIcon: {
     fontSize: 20,
     color: '#3b3b3b',
+  },
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerIconPressed: {
+    backgroundColor: '#e9e1d7',
   },
   headerTitle: {
     fontSize: 20,
@@ -628,5 +781,88 @@ const styles = StyleSheet.create({
   equalsLabel: {
     color: '#fff',
     fontWeight: '600',
+  },
+  sidebarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#121212',
+    zIndex: 20,
+  },
+  sidebarContainer: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: SIDEBAR_WIDTH,
+    backgroundColor: '#fefefe',
+    paddingTop: 48,
+    paddingBottom: 24,
+    zIndex: 30,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+  },
+  sidebarHeader: {
+    paddingHorizontal: 24,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e4e0da',
+  },
+  sidebarHeaderTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1f1f1f',
+  },
+  sidebarScrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 24,
+    gap: 24,
+  },
+  sidebarSection: {
+    gap: 8,
+  },
+  sidebarSectionTitle: {
+    fontSize: 12,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: '#7f7f7f',
+    paddingHorizontal: 8,
+  },
+  sidebarItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    gap: 12,
+  },
+  sidebarItemPressed: {
+    backgroundColor: '#efe8de',
+  },
+  sidebarItemActive: {
+    backgroundColor: '#e8f0fe',
+  },
+  sidebarItemIcon: {
+    fontSize: 18,
+  },
+  sidebarItemLabel: {
+    fontSize: 16,
+    color: '#3b3b3b',
+    flexShrink: 1,
+  },
+  sidebarItemLabelActive: {
+    fontWeight: '600',
+    color: '#1f1f1f',
+  },
+  sidebarFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e4e0da',
+    gap: 12,
   },
 });
