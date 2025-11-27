@@ -445,7 +445,7 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <View style={styles.memoryRow}>
+          {/* <View style={styles.memoryRow}>
             {(['MC', 'MR', 'M+', 'M-', 'MS', 'Mv'] as MemoryAction[]).map((action) => {
               const isActive = action === 'Mv' && memoryExpanded;
               return (
@@ -459,7 +459,7 @@ export default function HomeScreen() {
                 </Pressable>
               );
             })}
-          </View>
+          </View> */}
 
           {memoryExpanded && (
             <View style={styles.memoryContainer}>
@@ -553,6 +553,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerTextGroup: {
+    marginTop: 25,
     gap: 4,
   },
   headerTitle: {
