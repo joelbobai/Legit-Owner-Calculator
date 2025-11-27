@@ -218,12 +218,29 @@ export default function HomeScreen() {
       return;
     }
 
-    let percentage = currentValue / 100;
-
     if (storedValue !== null && pendingOperator !== null) {
-      percentage = (storedValue * currentValue) / 100;
+      const percentage = (storedValue * currentValue) / 100;
+
+      if (pendingOperator === '×' || pendingOperator === '÷') {
+        const result = pendingOperator === '×'
+          ? storedValue * (currentValue / 100)
+          : storedValue / (currentValue / 100);
+
+        commitValue(result);
+        setStoredValue(result);
+        setPendingOperator(null);
+        setWaitingForOperand(true);
+        setCompletedExpression(
+          `${formatNumber(storedValue)} ${pendingOperator} ${formatNumber(currentValue)}% =`,
+        );
+      } else {
+        commitValue(percentage);
+        setWaitingForOperand(true);
+      }
+      return;
     }
 
+    const percentage = currentValue / 100;
     commitValue(percentage);
     setWaitingForOperand(true);
   };
