@@ -99,8 +99,10 @@ export default function HomeScreen() {
   const [storedValue, setStoredValue] = useState<number | null>(null);
   const [memoryEntries, setMemoryEntries] = useState<MemoryEntry[]>([]);
   const [memoryExpanded, setMemoryExpanded] = useState(false);
+  const [completedExpression, setCompletedExpression] = useState<string | null>(null);
 
   const handleDigitPress = (digit: string) => {
+    setCompletedExpression(null);
     setDisplayValue((prev) => {
       if (!isNumericEntry(prev) || waitingForOperand) {
         setWaitingForOperand(false);
@@ -116,6 +118,7 @@ export default function HomeScreen() {
   };
 
   const handleDecimalPress = () => {
+    setCompletedExpression(null);
     setDisplayValue((prev) => {
       if (!isNumericEntry(prev)) {
         setWaitingForOperand(false);
@@ -170,6 +173,8 @@ export default function HomeScreen() {
       return;
     }
 
+    setCompletedExpression(null);
+
     if (storedValue === null || pendingOperator === null) {
       setStoredValue(currentValue);
     } else if (!waitingForOperand) {
@@ -201,6 +206,9 @@ export default function HomeScreen() {
     if (Number.isFinite(result)) {
       setStoredValue(result);
     }
+    setCompletedExpression(
+      `${formatNumber(storedValue)} ${pendingOperator} ${formatNumber(currentValue)} =`,
+    );
     setWaitingForOperand(true);
   };
 
@@ -256,6 +264,7 @@ export default function HomeScreen() {
   const handleClearEntry = () => {
     setDisplayValue('0');
     setWaitingForOperand(true);
+    setCompletedExpression(null);
   };
 
   const handleClearAll = () => {
@@ -263,6 +272,7 @@ export default function HomeScreen() {
     setStoredValue(null);
     setPendingOperator(null);
     setWaitingForOperand(false);
+    setCompletedExpression(null);
   };
 
   const handleBackspace = () => {
@@ -366,6 +376,22 @@ export default function HomeScreen() {
     return `${formattedInteger}.${decimalPart}`;
   }, [displayValue]);
 
+  const expressionDisplay = useMemo(() => {
+    if (completedExpression) {
+      return completedExpression;
+    }
+
+    if (pendingOperator && storedValue !== null) {
+      if (waitingForOperand) {
+        return `${formatNumber(storedValue)} ${pendingOperator}`;
+      }
+
+      return `${formatNumber(storedValue)} ${pendingOperator} ${formattedDisplay}`;
+    }
+
+    return '';
+  }, [completedExpression, formattedDisplay, pendingOperator, storedValue, waitingForOperand]);
+
   const handleButtonPress = (
     button: CalculatorButton,
   ) => (event: GestureResponderEvent) => {
@@ -433,12 +459,22 @@ export default function HomeScreen() {
             </View>
           )}
 
-          <View style={styles.displayContainer}>
+        <View style={styles.displayContainer}>
+          {expressionDisplay ? (
             <Text
               numberOfLines={1}
               adjustsFontSizeToFit
-              minimumFontScale={0.4}
-              style={styles.displayText}
+              minimumFontScale={0.5}
+              style={styles.expressionText}
+            >
+              {expressionDisplay}
+            </Text>
+          ) : null}
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.4}
+            style={styles.displayText}
             >
               {formattedDisplay}
             </Text>
@@ -568,6 +604,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 6,
     minHeight: 120,
+  },
+  expressionText: {
+    fontSize: 20,
+    color: '#7f7f7f',
+    marginBottom: 8,
   },
   displayText: {
     fontSize: 64,
