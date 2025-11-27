@@ -213,6 +213,8 @@ export default function HomeScreen() {
   };
 
   const handlePercent = () => {
+    setCompletedExpression(null);
+
     const currentValue = parseDisplayValue(displayValue);
     if (!Number.isFinite(currentValue)) {
       return;
@@ -241,6 +243,8 @@ export default function HomeScreen() {
     }
 
     const percentage = currentValue / 100;
+    setStoredValue(percentage);
+    setPendingOperator('×');
     commitValue(percentage);
     setWaitingForOperand(true);
   };
