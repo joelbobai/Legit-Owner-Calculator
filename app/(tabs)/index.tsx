@@ -55,6 +55,12 @@ type MemoryEntry = {
   value: number;
 };
 
+type HistoryEntry = {
+  id: string;
+  expression: string;
+  result: number;
+};
+
 const formatNumber = (value: number) => {
   if (!Number.isFinite(value)) {
     return 'Cannot divide by zero';
@@ -100,6 +106,8 @@ export default function HomeScreen() {
   const [memoryEntries, setMemoryEntries] = useState<MemoryEntry[]>([]);
   const [memoryExpanded, setMemoryExpanded] = useState(false);
   const [completedExpression, setCompletedExpression] = useState<string | null>(null);
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
+  const [historyExpanded, setHistoryExpanded] = useState(true);
 
   const handleDigitPress = (digit: string) => {
     setCompletedExpression(null);
@@ -206,9 +214,18 @@ export default function HomeScreen() {
     if (Number.isFinite(result)) {
       setStoredValue(result);
     }
-    setCompletedExpression(
-      `${formatNumber(storedValue)} ${pendingOperator} ${formatNumber(currentValue)} =`,
-    );
+    const expressionString = `${formatNumber(storedValue)} ${pendingOperator} ${formatNumber(currentValue)} =`;
+    setCompletedExpression(expressionString);
+    if (Number.isFinite(result)) {
+      setHistoryEntries((entries) => [
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          expression: expressionString,
+          result,
+        },
+        ...entries,
+      ].slice(0, 12));
+    }
     setWaitingForOperand(true);
   };
 
@@ -438,6 +455,18 @@ export default function HomeScreen() {
     }
   };
 
+  const handleHistorySelect = (entry: HistoryEntry) => {
+    commitValue(entry.result);
+    setStoredValue(entry.result);
+    setPendingOperator(null);
+    setWaitingForOperand(true);
+    setCompletedExpression(entry.expression);
+  };
+
+  const handleClearHistory = () => {
+    setHistoryEntries([]);
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -449,7 +478,7 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* <View style={styles.memoryRow}>
+          <View style={styles.memoryRow}>
             {(['MC', 'MR', 'M+', 'M-', 'MS', 'Mv'] as MemoryAction[]).map((action) => {
               const isActive = action === 'Mv' && memoryExpanded;
               return (
@@ -463,7 +492,7 @@ export default function HomeScreen() {
                 </Pressable>
               );
             })}
-          </View> */}
+          </View>
 
           {memoryExpanded && (
             <View style={styles.memoryContainer}>
@@ -479,6 +508,58 @@ export default function HomeScreen() {
               )}
             </View>
           )}
+
+          <View style={styles.historyContainer}>
+            <View style={styles.historyHeader}>
+              <View style={styles.historyTitleGroup}>
+                <Text style={styles.historyTitle}>History</Text>
+                <Text style={styles.historySubtitle}>Tap a result to reuse it</Text>
+              </View>
+              <View style={styles.historyActions}>
+                <Pressable
+                  onPress={() => setHistoryExpanded((expanded) => !expanded)}
+                  style={({ pressed }) => [styles.historyActionButton, pressed && styles.historyActionPressed]}
+                >
+                  <Text style={styles.historyActionLabel}>{historyExpanded ? 'Hide' : 'Show'}</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleClearHistory}
+                  disabled={historyEntries.length === 0}
+                  style={({ pressed }) => [
+                    styles.historyActionButton,
+                    historyEntries.length === 0 && styles.historyActionDisabled,
+                    pressed && styles.historyActionPressed,
+                  ]}
+                >
+                  <Text style={[styles.historyActionLabel, historyEntries.length === 0 && styles.historyActionLabelDisabled]}>
+                    Clear
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {historyExpanded && (
+              <View style={styles.historyList}>
+                {historyEntries.length === 0 ? (
+                  <Text style={styles.historyEmpty}>No calculations yet</Text>
+                ) : (
+                  historyEntries.map((entry) => (
+                    <Pressable
+                      key={entry.id}
+                      onPress={() => handleHistorySelect(entry)}
+                      style={({ pressed }) => [styles.historyItem, pressed && styles.historyItemPressed]}
+                      android_ripple={{ color: '#e4dbcf', borderless: false }}
+                    >
+                      <Text style={styles.historyExpression} numberOfLines={1}>
+                        {entry.expression}
+                      </Text>
+                      <Text style={styles.historyResult}>{formatNumber(entry.result)}</Text>
+                    </Pressable>
+                  ))
+                )}
+              </View>
+            )}
+          </View>
 
         <View style={styles.displayContainer}>
           {expressionDisplay ? (
@@ -636,6 +717,80 @@ const styles = StyleSheet.create({
     fontSize: 64,
     fontWeight: '300',
     color: '#1f1f1f',
+  },
+  historyContainer: {
+    borderRadius: 16,
+    backgroundColor: '#fdf8f2',
+    padding: 16,
+    gap: 12,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  historyTitleGroup: {
+    gap: 4,
+  },
+  historyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3b3b3b',
+  },
+  historySubtitle: {
+    fontSize: 12,
+    color: '#7f7f7f',
+  },
+  historyActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  historyActionButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#f7f3ed',
+  },
+  historyActionPressed: {
+    backgroundColor: '#e9e1d7',
+  },
+  historyActionDisabled: {
+    backgroundColor: '#f3f0eb',
+  },
+  historyActionLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#4d4d4d',
+  },
+  historyActionLabelDisabled: {
+    color: '#a9a9a9',
+  },
+  historyList: {
+    gap: 8,
+  },
+  historyItem: {
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    gap: 4,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+  },
+  historyItemPressed: {
+    backgroundColor: '#f1e8dc',
+  },
+  historyExpression: {
+    fontSize: 14,
+    color: '#6b6b6b',
+  },
+  historyResult: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#2f2f2f',
   },
   buttonsContainer: {
     gap: 12,
